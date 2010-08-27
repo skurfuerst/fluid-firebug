@@ -1,0 +1,3 @@
+content fluid chrome/content/fluid/ xpcnativewrappers=no
+
+overlay chrome://firebug/content/firebugOverlay.xul         chrome://fluid/content/fluid.xul
