@@ -3,8 +3,6 @@ FBL.ns(function() { with (FBL) {
 	var panelName = "FluidFirebugPanel";
 
 	Firebug.FluidModule = extend(Firebug.Module, {
-		fluidPanel: null,
-
 		// If a panel is switched, only show the Fluid buttons if
 		// we are in the Fluid-Panel, else, hide the buttons.
 		showPanel: function(browser, panel) {
@@ -14,10 +12,10 @@ FBL.ns(function() { with (FBL) {
 		},
 
 		onViewTemplateSource: function(context) {
-			Firebug.FluidModule.fluidPanel.display('templateSource');
+			Firebug.currentContext.getPanel("Fluid", false).display('templateSource');
 		},
 		onViewLayoutSource: function(context) {
-			Firebug.FluidModule.fluidPanel.display('layoutSource');
+			Firebug.currentContext.getPanel("Fluid", false).display('layoutSource');
 		}
 	});
 	Firebug.registerModule(Firebug.FluidModule);
@@ -32,7 +30,6 @@ FBL.ns(function() { with (FBL) {
 		currentlyDisplayed: '',
 		initialize: function() {
 			Firebug.Panel.initialize.apply(this, arguments);
-			Firebug.FluidModule.fluidPanel = this;
 			this.display('templateSource');
 		},
 		display: function(mode) {
@@ -54,11 +51,22 @@ FBL.ns(function() { with (FBL) {
 		dataLoaded: function(request) {
 			if (request.responseText.indexOf("<!--FLUID-TEMPLATE-SOURCE-->") != -1) {
 				this.panelNode.innerHTML = request.responseText;
+				this.setUpEvents();
 			} else {
 				this.panelNode.innerHTML = "No Fluid Template.";
 			}
 		},
-
+		setUpEvents: function() {
+			var tagsWithAdditionalInformation = Sizzle("[data-informationuri]", this.panelNode);
+			var l = tagsWithAdditionalInformation.length;
+			for (var i=0; i<l; i++) {
+				var singleTag = tagsWithAdditionalInformation[i];
+				singleTag.addEventListener('click', function() {
+					var fluidDetailsPanel = Firebug.currentContext.getPanel("FluidDetails", false);
+					fluidDetailsPanel.loadUri(this.getAttribute('data-informationuri'));
+				}, false);
+			}
+		},
 		getTemplateAnalyzerUri: function(mode) {
 			var argument;
 			if (this.context.window.location.search == "") {
@@ -71,5 +79,30 @@ FBL.ns(function() { with (FBL) {
 	});
 
 	Firebug.registerPanel(FluidPanel);
+
+	function FluidDetailsPanel() {}
+	FluidDetailsPanel.prototype = extend(Firebug.Panel, {
+		name: "FluidDetails",
+		parentPanel: panelName,
+		title: "Details",
+		loadUri: function(uri) {
+			var panel = this;
+
+			panel.panelNode.innerHTML = "Loading...";
+			var request = new XMLHttpRequest();
+			request.onreadystatechange = function() {
+				if (request.readyState == 4 && request.status == 200) {
+					panel.dataLoaded.call(panel, request);
+				}
+			}
+			request.open("GET", uri, true);
+			request.send(null);
+		},
+		dataLoaded: function(request) {
+			this.panelNode.innerHTML = request.responseText;
+		}
+	});
+
+	Firebug.registerPanel(FluidDetailsPanel);
 
 }});
