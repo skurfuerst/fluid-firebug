@@ -1,4 +1,21 @@
 <?xml version="1.0"?>
 <overlay xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <script src="chrome://fluid/content/fluid.js" type="application/x-javascript"/>
+	<script src="chrome://fluid/content/fluid.js" type="application/x-javascript"/>
+
+	<commandset id="mainCommandSet">
+		<command id="cmd_fluid_viewTemplateSource" oncommand="Firebug.FluidModule.onViewTemplateSource(FirebugContext)"/>
+		<command id="cmd_fluid_viewLayoutSource" oncommand="Firebug.FluidModule.onViewLayoutSource(FirebugContext)"/>
+	</commandset>
+
+	<hbox id="fbToolbarInner" insertbefore="fbDetachButton" flex="1" align="center">
+		<hbox id="fluidButtons" insertafter="fbNetButtons">
+			<toolbarseparator/>
+			<toolbarbutton
+				label="Template Source" class="toolbar-text-button"
+				tooltiptext="View Template Source" command="cmd_fluid_viewTemplateSource"/>
+			<toolbarbutton
+				label="Layout Source" class="toolbar-text-button"
+				tooltiptext="View Layout Source" command="cmd_fluid_viewLayoutSource"/>
+		</hbox>
+	</hbox>
 </overlay>
