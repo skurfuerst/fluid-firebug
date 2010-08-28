@@ -2,6 +2,7 @@ FBL.ns(function() {with (FBL) {
 	// Name of the panel we are inserting.
 	var panelName = "FluidFirebugPanel";
 
+	// How many documentation panels do we need MAX on the right side?
 	var numberOfDocumentationPanels = 2;
 
 	/**
@@ -27,22 +28,33 @@ FBL.ns(function() {with (FBL) {
 			context.getPanel(panelName, false).display('layoutSource');
 		},
 
+		/**
+		 * Show detail information which is fetched from some URL.
+		 * This dynamically updates the tabs on the right side.
+		 */
 		showDetailInformation: function(uri) {
+			// TODO: Display "loading" indicator
 			this.xhrRequest(uri, function(request) {
+				// TODO: handle errors if the responseText is no JSON.
 				var json = eval( "(" + request.responseText + ")");
+
 				for (var i=0; i < numberOfDocumentationPanels; i++) {
-					var currentPanel = Firebug.currentContext.getPanel('FluidDocumentation' + i);
 					if (typeof json[i] != 'undefined') {
+						// the current panel will be updated.
 						var currentTabConfiguration = json[i];
+						
+						var currentPanel = Firebug.currentContext.getPanel('FluidDocumentation' + i);
 						currentPanel.setTitle(currentTabConfiguration.title);
 						currentPanel.setContent(currentTabConfiguration.data);
 						$('fbPanelBar2').openPanel("FluidDocumentation" + i);
 					} else {
+						// the current panel will be hidden.
 						$('fbPanelBar2').closePanel("FluidDocumentation" + i);
 					}
 				}
 			}, this);
 		},
+
 		/**
 		 * Helper function which does a XHR GET request.
 		 */
@@ -67,13 +79,22 @@ FBL.ns(function() {with (FBL) {
 		name: panelName,
 		title: "Fluid",
 
-		// Contents of the tab which are currently displayed.
+		// Contents which are currently displayed. Could be "layoutSource" or "templateSource"
 		currentlyDisplayed: '',
+
+		/**
+		 * Initialize method.
+		 */
 		initialize: function() {
 			Firebug.Panel.initialize.apply(this, arguments);
 			this.display('templateSource');
 			this.displayExplanationText();
 		},
+
+		/**
+		 * Display the current page.
+		 * mode is either "layoutSource" or "templateSource"
+		 */
 		display: function(mode) {
 			if (mode == this.currentlyDisplayed) return; // nothing to do.
 			this.currentlyDisplayed = mode;
@@ -82,6 +103,49 @@ FBL.ns(function() {with (FBL) {
 			panel.panelNode.innerHTML = "Loading...";
 			Firebug.FluidModule.xhrRequest(this.getTemplateAnalyzerUri(mode), this.dataLoaded, this);
 		},
+		
+		/**
+		 * Build up URI of template analyzer
+		 */
+		getTemplateAnalyzerUri: function(mode) {
+			var argument;
+			if (this.context.window.location.search == "") {
+				argument = "?f3-fluid-debug=firebug";
+			} else {
+				argument = "&f3-fluid-debug=firebug";
+			}
+			return this.context.window.location.href + argument + "&f3-fluid-mode=" + mode;
+		},
+
+		/**
+		 * Callback when template has been loaded.
+		 */
+		dataLoaded: function(request) {
+			if (request.responseText.indexOf("<!--FLUID-TEMPLATE-SOURCE-->") != -1) {
+				this.panelNode.innerHTML = request.responseText;
+				this.setUpEvents();
+			} else {
+				this.panelNode.innerHTML = "No Fluid Template.";
+			}
+		},
+
+		/**
+		 * Initialize the events for the template.
+		 */
+		setUpEvents: function() {
+			var tagsWithAdditionalInformation = Sizzle("[data-informationuri]", this.panelNode);
+			var l = tagsWithAdditionalInformation.length;
+			for (var i=0; i<l; i++) {
+				var singleTag = tagsWithAdditionalInformation[i];
+				singleTag.addEventListener('click', function() {
+					Firebug.FluidModule.showDetailInformation(this.getAttribute('data-informationuri'));
+				}, false);
+			}
+		},
+
+		/**
+		 * Display introductory explanation text.
+		 */
 		displayExplanationText: function() {
 			var currentPanel = Firebug.currentContext.getPanel('FluidDocumentation0');
 			currentPanel.setTitle('About');
@@ -91,38 +155,16 @@ FBL.ns(function() {with (FBL) {
 			for (var i=1; i<numberOfDocumentationPanels; i++) {
 				$('fbPanelBar2').closePanel("FluidDocumentation" + i);
 			}
-		},
-		dataLoaded: function(request) {
-			if (request.responseText.indexOf("<!--FLUID-TEMPLATE-SOURCE-->") != -1) {
-				this.panelNode.innerHTML = request.responseText;
-				this.setUpEvents();
-			} else {
-				this.panelNode.innerHTML = "No Fluid Template.";
-			}
-		},
-		setUpEvents: function() {
-			var tagsWithAdditionalInformation = Sizzle("[data-informationuri]", this.panelNode);
-			var l = tagsWithAdditionalInformation.length;
-			for (var i=0; i<l; i++) {
-				var singleTag = tagsWithAdditionalInformation[i];
-				singleTag.addEventListener('click', function() {
-					var fluidDetailsPanel = Firebug.FluidModule.showDetailInformation(this.getAttribute('data-informationuri'));
-				}, false);
-			}
-		},
-		getTemplateAnalyzerUri: function(mode) {
-			var argument;
-			if (this.context.window.location.search == "") {
-				argument = "?f3-fluid-debug=firebug";
-			} else {
-				argument = "&f3-fluid-debug=firebug";
-			}
-			return this.context.window.location.href + argument + "&f3-fluid-mode=" + mode;
 		}
 	});
 
 	Firebug.registerPanel(FluidPanel);
 
+	/**
+	 * Create the Panels on the right side (DetailsPanel)
+	 * There are a fixed number of panels on the right side,
+	 * defined by the variable numberOfDocumentationPanels.
+	 */
 	function AbstractFluidDetailsPanel() {}
 	AbstractFluidDetailsPanel.prototype = extend(Firebug.Panel, {
 		name: "FluidDetails",
@@ -142,6 +184,7 @@ FBL.ns(function() {with (FBL) {
 		}
 	});
 
+	// Create all the documentation panels.
 	for (var i=0; i<numberOfDocumentationPanels; i++) {
 		var docPanel = function() {};
 		docPanel.prototype = extend(AbstractFluidDetailsPanel.prototype, {
